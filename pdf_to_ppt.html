@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>PDF to PPT Converter</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/pptxgenjs@3.12.0/dist/pptxgen.min.js"></script>
+  <style>
+    body{font-family:Arial,sans-serif;padding:24px;background:#f7fafc;}
+    .card{max-width:800px;margin:0 auto;background:#fff;padding:18px;border-radius:8px;box-shadow:0 6px 24px rgba(0,0,0,.06)}
+    input[type="file"]{margin:12px 0;}
+    button{background:#007bff;color:#fff;border:none;padding:10px 16px;border-radius:4px;cursor:pointer;}
+    button:hover{background:#0056b3;}
+    button:disabled{background:#ccc;cursor:not-allowed;}
+  </style>
+</head>
+<body>
+  <div class="card">
+    <a href="index.html">← Home</a>
+    <h2>PDF → PPT</h2>
+    <input type="file" id="pdfInput" accept=".pdf">
+    <button onclick="convertToPPT()">Convert to PPT</button>
+  </div>
+
+  <script>
+    pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+
+    function convertToPPT() {
+      const fileInput = document.getElementById('pdfInput');
+      const file = fileInput.files[0];
+      if (!file) {
+        alert('Please select a PDF file.');
+        return;
+      }
+
+      const btn = document.querySelector('button');
+      btn.textContent = 'Processing...';
+      btn.disabled = true;
+
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        const arrayBuffer = e.target.result;
+        pdfjsLib.getDocument({ data: arrayBuffer }).promise
+          .then((pdf) => {
+            const pptx = new PptxGenJS();
+            const promises = [];
+            for (let i = 1; i <= pdf.numPages; i++) {
+              promises.push(pdf.getPage(i).then(page => {
+                const scale = 1.5;
+                const viewport = page.getViewport({ scale });
+                const canvas = document.createElement('canvas');
+                const ctx = canvas.getContext('2d');
+                canvas.height = viewport.height;
+                canvas.width = viewport.width;
+                return page.render({ canvasContext: ctx, viewport }).promise.then(() => {
+                  const imgData = canvas.toDataURL('image/png');
+                  pptx.addSlide().addImage({ data: imgData, x: 0, y: 0, w: '100%', h: '100%' });
+                });
+              }));
+            }
+            return Promise.all(promises).then(() => pptx);
+          })
+          .then((pptx) => {
+            pptx.writeFile({ fileName: 'converted.pdf.pptx' });
+            btn.textContent = 'Convert to PPT';
+            btn.disabled = false;
+          })
+          .catch((err) => {
+            console.error(err);
+            alert('Error converting file.');
+            btn.textContent = 'Convert to PPT';
+            btn.disabled = false;
+          });
+      };
+      reader.readAsArrayBuffer(file);
+    }
+  </script>
+</body>
+</html>

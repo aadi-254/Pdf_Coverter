@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Word to PDF Converter</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.4.21/mammoth.browser.min.js"></script>
+  <style>
+    body{font-family:Arial,sans-serif;padding:24px;background:#f7fafc;}
+    .card{max-width:800px;margin:0 auto;background:#fff;padding:18px;border-radius:8px;box-shadow:0 6px 24px rgba(0,0,0,.06)}
+    input[type="file"]{margin:12px 0;}
+    button{background:#007bff;color:#fff;border:none;padding:10px 16px;border-radius:4px;cursor:pointer;}
+    button:hover{background:#0056b3;}
+    button:disabled{background:#ccc;cursor:not-allowed;}
+  </style>
+</head>
+<body>
+  <div class="card">
+    <a href="index.html">← Home</a>
+    <h2>Word → PDF</h2>
+    <input type="file" id="wordInput" accept=".docx">
+    <button onclick="convertToPDF()">Convert to PDF</button>
+  </div>
+
+  <script>
+    const { jsPDF } = window.jspdf;
+
+    function convertToPDF() {
+      const fileInput = document.getElementById('wordInput');
+      const file = fileInput.files[0];
+      if (!file) {
+        alert('Please select a .docx file.');
+        return;
+      }
+
+      const btn = document.querySelector('button');
+      btn.textContent = 'Processing...';
+      btn.disabled = true;
+
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        const arrayBuffer = e.target.result;
+        mammoth.convertToHtml({ arrayBuffer })
+          .then((result) => {
+            const htmlContent = result.value;
+            const doc = new jsPDF();
+            doc.html(htmlContent, {
+              callback: () => {
+                doc.save('converted.docx.pdf');
+                btn.textContent = 'Convert to PDF';
+                btn.disabled = false;
+              },
+              x: 10,
+              y: 10,
+              width: 180,
+              windowWidth: 650
+            });
+          })
+          .catch((err) => {
+            console.error(err);
+            alert('Error converting file.');
+            btn.textContent = 'Convert to PDF';
+            btn.disabled = false;
+          });
+      };
+      reader.readAsArrayBuffer(file);
+    }
+  </script>
+</body>
+</html>

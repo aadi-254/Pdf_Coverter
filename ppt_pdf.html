@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>PPT to PDF Converter</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+  <style>
+    body{font-family:Arial,sans-serif;padding:24px;background:#f7fafc;}
+    .card{max-width:800px;margin:0 auto;background:#fff;padding:18px;border-radius:8px;box-shadow:0 6px 24px rgba(0,0,0,.06)}
+    input[type="file"]{margin:12px 0;}
+    button{background:#007bff;color:#fff;border:none;padding:10px 16px;border-radius:4px;cursor:pointer;}
+    button:hover{background:#0056b3;}
+    button:disabled{background:#ccc;cursor:not-allowed;}
+  </style>
+</head>
+<body>
+  <div class="card">
+    <a href="index.html">← Home</a>
+    <h2>PPT → PDF</h2>
+    <input type="file" id="pptInput" accept=".pptx">
+    <button onclick="convertToPDF()">Convert to PDF</button>
+  </div>
+
+  <script>
+    const { jsPDF } = window.jspdf;
+
+    function convertToPDF() {
+      const fileInput = document.getElementById('pptInput');
+      const file = fileInput.files[0];
+      if (!file) {
+        alert('Please select a .pptx file.');
+        return;
+      }
+
+      const btn = document.querySelector('button');
+      btn.textContent = 'Processing...';
+      btn.disabled = true;
+
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        const arrayBuffer = e.target.result;
+        JSZip.loadAsync(arrayBuffer).then(zip => {
+          const images = [];
+          zip.forEach((relativePath, file) => {
+            if (relativePath.startsWith('ppt/media/') && file.name.endsWith('.png')) {
+              images.push(file.async('blob'));
+            }
+          });
+          return Promise.all(images);
+        }).then(blobs => {
+          const doc = new jsPDF();
+          let processed = 0;
+          blobs.forEach((blob, index) => {
+            const img = new Image();
+            img.onload = () => {
+              const canvas = document.createElement('canvas');
+              const ctx = canvas.getContext('2d');
+              canvas.width = img.width;
+              canvas.height = img.height;
+              ctx.drawImage(img, 0, 0);
+              const imgData = canvas.toDataURL('image/png');
+              if (index > 0) doc.addPage();
+              doc.addImage(imgData, 'PNG', 10, 10, 180, 250);
+              processed++;
+              if (processed === blobs.length) {
+                doc.save('converted.pptx.pdf');
+                btn.textContent = 'Convert to PDF';
+                btn.disabled = false;
+              }
+            };
+            img.src = URL.createObjectURL(blob);
+          });
+        }).catch(err => {
+          console.error(err);
+          alert('Error converting file.');
+          btn.textContent = 'Convert to PDF';
+          btn.disabled = false;
+        });
+      };
+      reader.readAsArrayBuffer(file);
+    }
+  </script>
+</body>
+</html>

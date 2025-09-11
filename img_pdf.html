@@ -1,0 +1,309 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Image to PDF Converter</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background-color: #f0f0f0;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      min-height: 100vh;
+      margin: 0;
+      padding: 20px;
+    }
+    .container {
+      background-color: white;
+      padding: 20px;
+      border-radius: 8px;
+      box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+      max-width: 500px;
+      width: 100%;
+    }
+    h1 {
+      text-align: center;
+      font-size: 24px;
+      margin-bottom: 20px;
+    }
+    input[type="file"] {
+      width: 100%;
+      padding: 10px;
+      border: 1px solid #ccc;
+      border-radius: 4px;
+      margin-bottom: 20px;
+    }
+    .preview-container {
+      margin-bottom: 20px;
+    }
+    .preview-container h2 {
+      font-size: 18px;
+      margin-bottom: 10px;
+    }
+    .previews {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
+      gap: 10px;
+    }
+    .preview {
+      position: relative;
+    }
+    .preview img {
+      width: 100%;
+      height: 80px;
+      object-fit: cover;
+      border-radius: 4px;
+    }
+    .remove-btn {
+      position: absolute;
+      top: 5px;
+      right: 5px;
+      background-color: #ff4444;
+      color: white;
+      border: none;
+      border-radius: 50%;
+      width: 24px;
+      height: 24px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      font-size: 14px;
+    }
+    button {
+      width: 100%;
+      padding: 10px;
+      background-color: #007bff;
+      color: white;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 16px;
+    }
+    button:hover {
+      background-color: #0056b3;
+    }
+    .move-btn {
+      padding: 4px 8px;
+      background-color: #28a745;
+      color: white;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 12px;
+      margin-left: 4px;
+    }
+    .move-btn:disabled {
+      background-color: #ccc;
+      cursor: not-allowed;
+    }
+    .home-link { display:block; margin-bottom:12px; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <a class="home-link" href="index.html">← Home</a>
+    <h1>Image to PDF Converter</h1>
+    <label for="orientation" style="display:block;margin-bottom:10px;">PDF Orientation:</label>
+    <select id="orientation" style="width:100%;padding:8px;margin-bottom:20px;">
+      <option value="p">Portrait (A4)</option>
+      <option value="l">Landscape (A4)</option>
+    </select>
+  <label for="qualityRange" style="display:block;margin-bottom:6px;">Image Quality (smaller file => lower quality): <span id="qualityValue">0.7</span></label>
+  <input type="range" id="qualityRange" min="0.1" max="1" step="0.05" value="0.7" style="width:100%;margin-bottom:12px;">
+  <label for="maxDim" style="display:block;margin-bottom:6px;">Max image side (px):</label>
+  <input type="number" id="maxDim" value="1600" min="400" max="4000" style="width:100%;padding:8px;margin-bottom:16px;">
+    <input type="file" id="imageInput" accept="image/*" multiple>
+    <div class="preview-container" id="previewContainer" style="display: none;">
+      <h2>Image Previews</h2>
+      <div class="previews" id="previews"></div>
+    </div>
+    <button onclick="convertToPDF()">Convert to PDF</button>
+  </div>
+
+  <script>
+    const { jsPDF } = window.jspdf;
+    let images = [];
+
+    // Handle image uploads
+    document.getElementById('imageInput').addEventListener('change', (event) => {
+      const files = Array.from(event.target.files);
+      const previewContainer = document.getElementById('previewContainer');
+
+      // Add new files to images array
+      const validFiles = files.filter(file => file.type.startsWith('image/'));
+      images = images.concat(validFiles);
+      renderPreviews();
+      previewContainer.style.display = images.length > 0 ? 'block' : 'none';
+    });
+
+    // Render image previews
+    function renderPreviews() {
+      const previews = document.getElementById('previews');
+      previews.innerHTML = '';
+      let loadedCount = 0;
+
+      if (images.length === 0) {
+        document.getElementById('previewContainer').style.display = 'none';
+        return;
+      }
+
+      images.forEach((file, i) => {
+        const reader = new FileReader();
+        reader.onload = (e) => {
+          const div = document.createElement('div');
+          div.className = 'preview';
+          div.innerHTML = `
+            <img src="${e.target.result}" alt="Preview ${i}">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-top:4px;">
+              <button class="remove-btn" onclick="removeImage(${i})">X</button>
+              <button class="move-btn" onclick="moveImageLeft(${i})" ${i === 0 ? 'disabled' : ''}>&lt;</button>
+              <button class="move-btn" onclick="moveImageRight(${i})" ${i === images.length - 1 ? 'disabled' : ''}>&gt;</button>
+            </div>
+            <div style="font-size:12px;text-align:center;margin-top:2px;">${file.name}</div>
+          `;
+          previews.appendChild(div);
+          loadedCount++;
+          if (loadedCount === images.length) {
+            document.getElementById('previewContainer').style.display = 'block';
+          }
+        };
+        reader.readAsDataURL(file);
+      });
+    }
+
+    // Remove an image
+    function removeImage(index) {
+      images.splice(index, 1);
+      renderPreviews();
+    }
+
+    // Move image left
+    function moveImageLeft(index) {
+      if (index > 0) {
+        [images[index - 1], images[index]] = [images[index], images[index - 1]];
+        renderPreviews();
+      }
+    }
+
+    // Move image right
+    function moveImageRight(index) {
+      if (index < images.length - 1) {
+        [images[index + 1], images[index]] = [images[index], images[index + 1]];
+        renderPreviews();
+      }
+    }
+
+    // Helper: load a File, downscale and compress it via canvas, return data URL and scaled dimensions
+    function loadImageData(file) {
+      return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => {
+          const img = new Image();
+          img.onload = () => {
+            try {
+              const maxDim = Number(document.getElementById('maxDim').value) || 1600;
+              const quality = Number(document.getElementById('qualityRange').value) || 0.7;
+
+              // calculate target size preserving aspect ratio
+              let targetWidth = img.width;
+              let targetHeight = img.height;
+              if (Math.max(img.width, img.height) > maxDim) {
+                const ratio = maxDim / Math.max(img.width, img.height);
+                targetWidth = Math.round(img.width * ratio);
+                targetHeight = Math.round(img.height * ratio);
+              }
+
+              // draw to canvas and get compressed JPEG data URL
+              const canvas = document.createElement('canvas');
+              canvas.width = targetWidth;
+              canvas.height = targetHeight;
+              const ctx = canvas.getContext('2d');
+              // fill white background to avoid transparency causing larger size
+              ctx.fillStyle = '#ffffff';
+              ctx.fillRect(0, 0, canvas.width, canvas.height);
+              ctx.drawImage(img, 0, 0, targetWidth, targetHeight);
+
+              const dataUrl = canvas.toDataURL('image/jpeg', quality);
+              resolve({ dataUrl, width: targetWidth, height: targetHeight });
+            } catch (err) {
+              reject(err);
+            }
+          };
+          img.onerror = (e) => reject(e);
+          img.src = reader.result;
+        };
+        reader.onerror = (e) => reject(e);
+        reader.readAsDataURL(file);
+      });
+    }
+
+    // update quality display
+    const qualityRangeEl = document.getElementById('qualityRange');
+    const qualityValueEl = document.getElementById('qualityValue');
+    if (qualityRangeEl && qualityValueEl) {
+      qualityRangeEl.addEventListener('input', () => {
+        qualityValueEl.textContent = qualityRangeEl.value;
+      });
+    }
+
+    // Convert images to PDF (loads images in-order to preserve preview order)
+    function convertToPDF() {
+      if (images.length === 0) {
+        alert('Please upload at least one image.');
+        return;
+      }
+
+      const orientation = document.getElementById('orientation').value;
+      const statusBtn = document.querySelector('button[onclick="convertToPDF()"]');
+      const originalText = statusBtn.textContent;
+      statusBtn.textContent = 'Processing...';
+      statusBtn.disabled = true;
+
+      // create array of promises to load each image (in current images[] order)
+      const loadPromises = images.map(file => loadImageData(file));
+
+      Promise.all(loadPromises)
+        .then(loadedImages => {
+          const doc = new jsPDF({ orientation });
+
+          loadedImages.forEach((imgObj, index) => {
+            const pageWidth = doc.internal.pageSize.getWidth();
+            const pageHeight = doc.internal.pageSize.getHeight();
+            const maxWidth = pageWidth - 20;
+            const maxHeight = pageHeight - 20;
+
+            let width = imgObj.width;
+            let height = imgObj.height;
+
+            // Scale image to fit page while maintaining aspect ratio
+            if (width > maxWidth) {
+              height = (maxWidth / width) * height;
+              width = maxWidth;
+            }
+            if (height > maxHeight) {
+              width = (maxHeight / height) * width;
+              height = maxHeight;
+            }
+
+            if (index > 0) doc.addPage();
+            doc.addImage(imgObj.dataUrl, 'JPEG', 10, 10, width, height);
+          });
+
+          doc.save('converted-images.pdf');
+        })
+        .catch((err) => {
+          console.error('Error loading images for PDF:', err);
+          alert('Failed to process images. See console for details.');
+        })
+        .finally(() => {
+          statusBtn.textContent = originalText;
+          statusBtn.disabled = false;
+        });
+    }
+  </script>
+</body>
+</html>
