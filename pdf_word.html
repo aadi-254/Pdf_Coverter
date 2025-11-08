@@ -4,83 +4,205 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <title>PDF to Word Converter</title>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/docx@7.8.2/build/index.js"></script>
+  <!-- PDF.js -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.14.305/pdf.min.js"></script>
+  <!-- docx.js -->
+  <script src="https://unpkg.com/docx@7.7.0/build/docx.js"></script>
   <style>
-    body{font-family:Arial,sans-serif;padding:24px;background:#f7fafc;}
-    .card{max-width:800px;margin:0 auto;background:#fff;padding:18px;border-radius:8px;box-shadow:0 6px 24px rgba(0,0,0,.06)}
-    input[type="file"]{margin:12px 0;}
-    button{background:#007bff;color:#fff;border:none;padding:10px 16px;border-radius:4px;cursor:pointer;}
-    button:hover{background:#0056b3;}
-    button:disabled{background:#ccc;cursor:not-allowed;}
+    body {
+      font-family: Arial, sans-serif;
+      background: #f7fafc;
+      margin: 0;
+      padding: 0;
+    }
+    .container {
+      max-width: 500px;
+      margin: 40px auto;
+      background: #fff;
+      border-radius: 8px;
+      box-shadow: 0 4px 16px rgba(0,0,0,0.08);
+      padding: 32px 24px;
+      text-align: center;
+    }
+    h1 {
+      font-size: 2rem;
+      margin-bottom: 18px;
+    }
+    input[type="file"] {
+      margin: 18px 0;
+      padding: 8px;
+    }
+    button {
+      background: #28a745;
+      color: #fff;
+      border: none;
+      padding: 10px 20px;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 1rem;
+      margin-top: 12px;
+    }
+    button:disabled {
+      background: #ccc;
+      cursor: not-allowed;
+    }
+    .status {
+      margin-top: 16px;
+      color: #d9534f;
+      font-size: 1rem;
+    }
   </style>
 </head>
 <body>
-  <div class="card">
-    <a href="index.html">← Home</a>
-    <h2>PDF → Word</h2>
+  <div class="container">
+    <h1>PDF to Word Converter</h1>
     <input type="file" id="pdfInput" accept=".pdf">
-    <button onclick="convertToWord()">Convert to Word</button>
+    <br>
+    <button id="convertBtn">Convert to Word</button>
+    <div class="status" id="status"></div>
+    <a href="index.html" style="display:block;margin-top:24px;">← Back to Home</a>
   </div>
-
   <script>
-    pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+    if (!window.docx) {
+      document.getElementById('status').textContent = 'Error: docx.js library failed to load. Please check your internet connection or CDN link.';
+      document.getElementById('convertBtn').disabled = true;
+    } else {
+      const { Document, Packer, Paragraph } = window.docx;
 
-    function convertToWord() {
+      document.getElementById('convertBtn').addEventListener('click', async function () {
+        const fileInput = document.getElementById('pdfInput');
+        const statusDiv = document.getElementById('status');
+        const file = fileInput.files[0];
+
+        if (!file) {
+          statusDiv.textContent = 'Please select a PDF file.';
+          return;
+        }
+        if (!file.name.endsWith('.pdf')) {
+          statusDiv.textContent = 'Invalid file type. Please select a .pdf file.';
+          return;
+        }
+
+        this.disabled = true;
+        statusDiv.textContent = 'Extracting text...';
+
+        const reader = new FileReader();
+        reader.onload = async function (e) {
+          try {
+            const typedArray = new Uint8Array(e.target.result);
+            const pdf = await pdfjsLib.getDocument(typedArray).promise;
+
+            let paragraphs = [];
+
+            for (let i = 1; i <= pdf.numPages; i++) {
+              const page = await pdf.getPage(i);
+              const content = await page.getTextContent();
+              const strings = content.items.map(item => item.str);
+
+              if (strings.length > 0) {
+                paragraphs.push(new Paragraph(strings.join(" ")));
+              }
+
+              // Add a page break after each page (except last one)
+              if (i < pdf.numPages) {
+                paragraphs.push(new Paragraph({ children: [], pageBreakBefore: true }));
+              }
+            }
+
+            // Create Word document
+            const doc = new Document({
+              sections: [{ properties: {}, children: paragraphs }]
+            });
+
+            const blob = await Packer.toBlob(doc);
+            const link = document.createElement("a");
+            link.href = URL.createObjectURL(blob);
+            link.download = file.name.replace(/\.pdf$/, ".docx");
+            link.click();
+
+            statusDiv.textContent = 'Conversion complete!';
+          } catch (err) {
+            statusDiv.textContent = 'Error: ' + (err.message || 'Failed to process PDF.');
+          } finally {
+            document.getElementById('convertBtn').disabled = false;
+          }
+        };
+
+        reader.onerror = function () {
+          statusDiv.textContent = 'Error reading file.';
+          document.getElementById('convertBtn').disabled = false;
+        };
+
+        reader.readAsArrayBuffer(file);
+      });
+    }
+
+    document.getElementById('convertBtn').addEventListener('click', async function () {
       const fileInput = document.getElementById('pdfInput');
+      const statusDiv = document.getElementById('status');
       const file = fileInput.files[0];
+
       if (!file) {
-        alert('Please select a PDF file.');
+        statusDiv.textContent = 'Please select a PDF file.';
+        return;
+      }
+      if (!file.name.endsWith('.pdf')) {
+        statusDiv.textContent = 'Invalid file type. Please select a .pdf file.';
         return;
       }
 
-      const btn = document.querySelector('button');
-      btn.textContent = 'Processing...';
-      btn.disabled = true;
+      this.disabled = true;
+      statusDiv.textContent = 'Extracting text...';
 
       const reader = new FileReader();
-      reader.onload = (e) => {
-        const arrayBuffer = e.target.result;
-        pdfjsLib.getDocument({ data: arrayBuffer }).promise
-          .then((pdf) => {
-            let text = '';
-            const promises = [];
-            for (let i = 1; i <= pdf.numPages; i++) {
-              promises.push(pdf.getPage(i).then(page => page.getTextContent()).then(content => {
-                content.items.forEach(item => text += item.str + ' ');
-                text += '\n';
-              }));
+      reader.onload = async function (e) {
+        try {
+          const typedArray = new Uint8Array(e.target.result);
+          const pdf = await pdfjsLib.getDocument(typedArray).promise;
+
+          let paragraphs = [];
+
+          for (let i = 1; i <= pdf.numPages; i++) {
+            const page = await pdf.getPage(i);
+            const content = await page.getTextContent();
+            const strings = content.items.map(item => item.str);
+
+            if (strings.length > 0) {
+              paragraphs.push(new Paragraph(strings.join(" ")));
             }
-            return Promise.all(promises).then(() => text);
-          })
-          .then((text) => {
-            const { Document, Packer, Paragraph, TextRun } = docx;
-            const doc = new Document({
-              sections: [{
-                properties: {},
-                children: text.split('\n').map(line => new Paragraph({ children: [new TextRun(line)] }))
-              }]
-            });
-            Packer.toBlob(doc).then(blob => {
-              const url = URL.createObjectURL(blob);
-              const a = document.createElement('a');
-              a.href = url;
-              a.download = 'converted.pdf.docx';
-              a.click();
-              URL.revokeObjectURL(url);
-              btn.textContent = 'Convert to Word';
-              btn.disabled = false;
-            });
-          })
-          .catch((err) => {
-            console.error(err);
-            alert('Error converting file.');
-            btn.textContent = 'Convert to Word';
-            btn.disabled = false;
+
+            // Add a page break after each page (except last one)
+            if (i < pdf.numPages) {
+              paragraphs.push(new Paragraph({ children: [], pageBreakBefore: true }));
+            }
+          }
+
+          // Create Word document
+          const doc = new Document({
+            sections: [{ properties: {}, children: paragraphs }]
           });
+
+          const blob = await Packer.toBlob(doc);
+          const link = document.createElement("a");
+          link.href = URL.createObjectURL(blob);
+          link.download = file.name.replace(/\.pdf$/, ".docx");
+          link.click();
+
+          statusDiv.textContent = 'Conversion complete!';
+        } catch (err) {
+          statusDiv.textContent = 'Error: ' + (err.message || 'Failed to process PDF.');
+        } finally {
+          document.getElementById('convertBtn').disabled = false;
+        }
       };
+
+      reader.onerror = function () {
+        statusDiv.textContent = 'Error reading file.';
+        document.getElementById('convertBtn').disabled = false;
+      };
+
       reader.readAsArrayBuffer(file);
-    }
+    });
   </script>
 </body>
 </html>

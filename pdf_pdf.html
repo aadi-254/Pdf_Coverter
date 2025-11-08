@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Merge PDFs</title>
+  <link rel="stylesheet" href="styles.css">
+  <style>
+    .center{max-width:900px;margin:32px auto}
+    .controls{display:flex;gap:8px;align-items:center;margin-top:12px}
+    #fileList{margin-top:12px;color:#333}
+    button{cursor:pointer}
+    .note{color:#666;font-size:13px;margin-top:12px}
+  </style>
+</head>
+<body>
+  <div class="wrap center">
+    <h1>Merge PDF files</h1>
+    <p class="lead">Select multiple PDF files and merge them in the selected order. This runs entirely in your browser — files are not uploaded to a server.</p>
+
+    <input id="inputFiles" type="file" accept="application/pdf" multiple>
+    <div class="controls">
+      <button id="mergeBtn">Merge PDFs</button>
+      <button id="clearBtn">Clear</button>
+      <a id="downloadLink" style="display:none">Download merged PDF</a>
+    </div>
+
+    <div id="fileList" aria-live="polite"></div>
+    <div id="status" class="note"></div>
+
+    <p class="note">If you need re-ordering, select files in the desired order in the file picker.</p>
+    <p style="margin-top:18px"><a href="index.html">← Back to tools</a></p>
+  </div>
+
+  <!-- PDF-Lib (CDN) -->
+  <script src="https://cdn.jsdelivr.net/npm/pdf-lib/dist/pdf-lib.min.js"></script>
+  <script src="libs/merge_pdf.js"></script>
+</body>
+</html>
